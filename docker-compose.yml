@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: idkwhyureadthis
+      POSTGRES_PASSWORD: 12345
+      POSTGRES_DB: ozon-task
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    environment:
+      STORAGE: postgresql://idkwhyureadthis:12345@db:5432/ozon-task?sslmode=disable
+      MIGRATIONS: RESET
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

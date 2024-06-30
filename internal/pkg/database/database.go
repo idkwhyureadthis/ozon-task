@@ -68,6 +68,7 @@ func Connect(connString string, migrations string) {
 		}
 		database.SetupMigrations(migrations, "sqlite3")
 	}
+	log.Println(database)
 }
 
 func GetConnection() *DB {

@@ -11,17 +11,11 @@ import (
 	"github.com/idkwhyureadthis/ozon-task/graph"
 	"github.com/idkwhyureadthis/ozon-task/internal/pkg/database"
 	"github.com/idkwhyureadthis/ozon-task/internal/pkg/mw"
-	"github.com/joho/godotenv"
 )
 
 const defaultPort = "8080"
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("failed to load .env file")
-	}
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
