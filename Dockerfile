@@ -10,5 +10,6 @@ FROM alpine
 WORKDIR /app
 COPY --from=builder /app/ozon-task ./ozon-task
 COPY --from=builder /app/internal/migrations ./internal/migrations
+COPY --from=builder /app/internal/database ./internal/database
 EXPOSE 8080
 CMD ["./ozon-task"]
