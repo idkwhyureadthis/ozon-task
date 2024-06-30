@@ -1,0 +1,85 @@
+# GraphQL schema example
+#
+# https://gqlgen.com/getting-started/
+
+
+type User {
+  id: ID!
+  name: String!
+  about: String
+}
+
+type Post{
+  id: ID!
+  data: String!
+  commentable: Boolean!
+  author: User!   
+}
+
+
+type Comment {
+  id: ID!
+  text: String!
+  post: Post!
+  answer_to: ID!
+  initial_comment: ID!
+  creator: User!
+  hasReplies: Boolean!
+}
+
+type Query {
+  comments(post_id: ID!, page: Int!): [Comment!]!
+  get_user(id: ID!): User!
+  posts(page: Int!): [Post!]!
+  get_post(post_id: ID!): Post!
+  get_replies(comment_id: ID!, page: Int!): [Comment!]!
+  get_comment(comment_id: ID!): Comment!
+}
+
+input CreateUserInput {
+  name: String!
+  about: String
+}
+
+input UpdateUserInput {
+  about: String!
+}
+
+input CreatePostInput {
+  data: String!
+  commentable: Boolean!
+}
+
+input UpdatePostInput {
+  data: String!
+  commentable: Boolean!
+}
+
+input CreateCommentInput {
+  text: String!
+  post: ID!
+  answer_to: ID!
+}
+
+input UpdateCommentInput {
+  data: String!
+}
+
+type DeletePostResponse{
+  deletedPostId: String!
+  deletedCommsId: [String!]!
+}
+
+type deleteCommentResponse{
+  deleted_comment_id: String!
+}
+
+type Mutation {
+  createUser(input: CreateUserInput): User!
+  updateUser(input: UpdateUserInput): User!
+  createPost(input: CreatePostInput): Post!
+  updatePost(id: ID!, input: UpdatePostInput): Post!
+  deletePost(id: ID!): DeletePostResponse!
+  createComment(input: CreateCommentInput): Comment!
+  updateComment(comm_id: ID!, input: UpdateCommentInput): Comment!
+}
