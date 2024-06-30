@@ -11,6 +11,12 @@ import (
 	"github.com/idkwhyureadthis/ozon-task/internal/pkg/database"
 )
 
+var db *database.DB
+
+func Init() {
+	db = database.GetConnection()
+}
+
 // CreateUser is the resolver for the createUser field.
 func (r *mutationResolver) CreateUser(ctx context.Context, input *model.CreateUserInput) (*model.User, error) {
 	return db.CreateUser(ctx, input), nil
@@ -29,11 +35,6 @@ func (r *mutationResolver) CreatePost(ctx context.Context, input *model.CreatePo
 // UpdatePost is the resolver for the updatePost field.
 func (r *mutationResolver) UpdatePost(ctx context.Context, id string, input *model.UpdatePostInput) (*model.Post, error) {
 	return db.UpdatePost(ctx, id, input), nil
-}
-
-// DeletePost is the resolver for the deletePost field.
-func (r *mutationResolver) DeletePost(ctx context.Context, id string) (*model.DeletePostResponse, error) {
-	return db.DeletePost(ctx, id), nil
 }
 
 // CreateComment is the resolver for the createComment field.
@@ -91,8 +92,3 @@ type queryResolver struct{ *Resolver }
 //   - When renaming or deleting a resolver the old code will be put in here. You can safely delete
 //     it when you're done.
 //   - You have helper methods in this file. Move them out to keep these resolver files clean.
-var db *database.DB
-
-func Init() {
-	db = database.GetConnection()
-}

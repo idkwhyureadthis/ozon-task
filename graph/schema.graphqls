@@ -6,7 +6,7 @@
 type User {
   id: ID!
   name: String!
-  about: String
+  about: String!
 }
 
 type Post{
@@ -38,7 +38,7 @@ type Query {
 
 input CreateUserInput {
   name: String!
-  about: String
+  about: String!
 }
 
 input UpdateUserInput {
@@ -65,21 +65,11 @@ input UpdateCommentInput {
   data: String!
 }
 
-type DeletePostResponse{
-  deletedPostId: String!
-  deletedCommsId: [String!]!
-}
-
-type deleteCommentResponse{
-  deleted_comment_id: String!
-}
-
 type Mutation {
   createUser(input: CreateUserInput): User!
   updateUser(input: UpdateUserInput): User!
   createPost(input: CreatePostInput): Post!
   updatePost(id: ID!, input: UpdatePostInput): Post!
-  deletePost(id: ID!): DeletePostResponse!
   createComment(input: CreateCommentInput): Comment!
   updateComment(comm_id: ID!, input: UpdateCommentInput): Comment!
 }

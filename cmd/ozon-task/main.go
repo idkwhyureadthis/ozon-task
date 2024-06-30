@@ -28,10 +28,10 @@ func main() {
 	}
 
 	storage := os.Getenv("STORAGE")
-	migrations := os.Getenv("MIGRATIONS")
-	database.Connect(storage, migrations)
+	_ = os.Getenv("MIGRATIONS")
+	database.Connect(storage, "RESET")
 	graph.Init()
-	defer database.CloseDB()
+	defer database.GetConnection().Client.Close()
 
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
 	router := chi.NewRouter()

@@ -21,7 +21,7 @@ import (
 )
 
 type DB struct {
-	client *sql.DB
+	Client *sql.DB
 }
 
 type Post struct {
@@ -35,14 +35,13 @@ var database *DB
 
 func Connect(connString string, migrations string) {
 	if strings.HasPrefix(connString, "postgresql://") {
-		goose.SetDialect("postgres")
 		conn, err := sql.Open("postgres", connString)
 		if err != nil {
 			log.Fatal("unable to open postgres DB:", err)
 		}
 		log.Println("successfully connected to postgres DB")
 		database = &DB{
-			client: conn,
+			Client: conn,
 		}
 		database.SetupMigrations(migrations, "postgres")
 
@@ -65,14 +64,10 @@ func Connect(connString string, migrations string) {
 		}
 		log.Println("successfully connected to sqlite3 DB")
 		database = &DB{
-			client: conn,
+			Client: conn,
 		}
 		database.SetupMigrations(migrations, "sqlite3")
 	}
-}
-
-func CloseDB() {
-	database.client.Close()
 }
 
 func GetConnection() *DB {
@@ -82,34 +77,25 @@ func GetConnection() *DB {
 func (db *DB) SetupMigrations(migrations string, drivers string) {
 	pathToMigrations := "internal/migrations/" + drivers
 	log.Println("setting up migrations...")
-	if migrations == "RESET" {
-		goose.Reset(db.client, pathToMigrations)
-	}
-	goose.Up(db.client, pathToMigrations)
+	goose.Up(db.Client, pathToMigrations)
 }
 
 func (db *DB) CreateUser(ctx context.Context, input *model.CreateUserInput) *model.User {
 	var (
 		name         string
-		about        *string
+		about        string
 		user         model.User
 		lastInsertId int
 	)
-	stmt, err := db.client.Prepare("INSERT INTO users (name, about) VALUES ($1, $2) RETURNING id;")
-	if err != nil {
-		log.Println("failed to create user:", err)
-		graphql.AddErrorf(ctx, "server error occurred")
-		return &model.User{}
-	}
+
+	stmt, _ := db.Client.Prepare("INSERT INTO users (name, about) VALUES ($1, $2) RETURNING id;")
+
 	name = cropstrings.CropToLength(input.Name, 32)
-	if input.About != nil {
-		croppedAbout := cropstrings.CropToLength(*input.About, 200)
-		about = &croppedAbout
+	if input.About != "" {
+		croppedAbout := cropstrings.CropToLength(input.About, 200)
+		about = croppedAbout
 	}
-	err = stmt.QueryRow(name, about).Scan(&lastInsertId)
-	if err != nil {
-		graphql.AddErrorf(ctx, "wrong user id provided")
-	}
+	stmt.QueryRow(name, about).Scan(&lastInsertId)
 	user = model.User{
 		ID:    fmt.Sprint(lastInsertId),
 		Name:  name,
@@ -123,7 +109,7 @@ func (db *DB) GetUser(ctx context.Context, id string) *model.User {
 	rqCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	query := fmt.Sprintf("SELECT * FROM users WHERE id = %v;", id)
-	row, err := db.client.QueryContext(rqCtx, query)
+	row, err := db.Client.QueryContext(rqCtx, query)
 	if err != nil {
 		log.Println("failed to get user:", err)
 		graphql.AddErrorf(ctx, "server error occurred")
@@ -156,7 +142,7 @@ func (db *DB) GetPost(ctx context.Context, id string) *model.Post {
 	rqCtx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	query := fmt.Sprintf("SELECT * FROM posts WHERE id = %v", id)
 	defer cancel()
-	row, err := db.client.QueryContext(rqCtx, query)
+	row, err := db.Client.QueryContext(rqCtx, query)
 	if err != nil {
 		log.Println("failed to get data from database", err)
 		graphql.AddErrorf(ctx, "server error occurred")
@@ -194,7 +180,7 @@ func (db *DB) GetPost(ctx context.Context, id string) *model.Post {
 
 func (db *DB) GetPosts(ctx context.Context, page int) []*model.Post {
 	var posts []*model.Post
-	limit := 2
+	limit := 20
 	offset := limit * (page - 1)
 	query := fmt.Sprintf("SELECT * FROM posts ORDER BY id ASC LIMIT %d OFFSET %d", limit, offset)
 	if page < 1 {
@@ -203,7 +189,7 @@ func (db *DB) GetPosts(ctx context.Context, page int) []*model.Post {
 	}
 	rqCtx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
-	rows, err := db.client.QueryContext(rqCtx, query)
+	rows, err := db.Client.QueryContext(rqCtx, query)
 	if err != nil {
 		log.Println("error while getting posts", err)
 		graphql.AddErrorf(ctx, "error while getting posts %v", err)
@@ -234,14 +220,7 @@ func (db *DB) GetPosts(ctx context.Context, page int) []*model.Post {
 		}
 		posts = append(posts, &postToAdd)
 	}
-	if cnt == 0 {
-		graphql.AddErrorf(ctx, "wrong page passed as argument")
-	}
 	return posts
-}
-
-func (db *DB) DeletePost(ctx context.Context, id string) *model.DeletePostResponse {
-	return nil
 }
 
 func (db *DB) CreatePost(ctx context.Context, input *model.CreatePostInput) *model.Post {
@@ -264,7 +243,7 @@ func (db *DB) CreatePost(ctx context.Context, input *model.CreatePostInput) *mod
 		log.Println("failed to marshall user json", err)
 		graphql.AddErrorf(ctx, "failed to parse user as json")
 	}
-	stmt, err := db.client.Prepare("INSERT INTO posts (data, author, is_commentable) VALUES ($1, $2, $3) returning id;")
+	stmt, err := db.Client.Prepare("INSERT INTO posts (data, author, is_commentable) VALUES ($1, $2, $3) returning id;")
 	if err != nil {
 		log.Println("error in preparing query", err)
 		graphql.AddErrorf(ctx, "server error occurred")
@@ -307,8 +286,8 @@ func (db *DB) UpdatePost(ctx context.Context, id string, input *model.UpdatePost
 		return &model.Post{}
 	}
 
-	query := fmt.Sprintf("SELECT author FROM posts WHERE id = %v;", userId)
-	err = db.client.QueryRow(query).Scan(&postCreator)
+	query := fmt.Sprintf("SELECT author FROM posts WHERE id = %v;", id)
+	err = db.Client.QueryRow(query).Scan(&postCreator)
 	if err != nil {
 		log.Println("error occurred while scanning author", err)
 		graphql.AddErrorf(ctx, "server error occurred")
@@ -324,7 +303,6 @@ func (db *DB) UpdatePost(ctx context.Context, id string, input *model.UpdatePost
 	}
 
 	if creatorJson.ID != userId {
-		log.Println("trying to change post of other user")
 		graphql.AddErrorf(ctx, "cant change post of other users")
 		return &model.Post{}
 	}
@@ -335,7 +313,7 @@ func (db *DB) UpdatePost(ctx context.Context, id string, input *model.UpdatePost
 	}
 
 	query = fmt.Sprintf("UPDATE posts SET data = '%v', is_commentable = %v WHERE id = %v RETURNING id;", input.Data, commentable, id)
-	err = db.client.QueryRow(query).Scan(&updatedId)
+	err = db.Client.QueryRow(query).Scan(&updatedId)
 	if err != nil {
 		log.Println("error occurred while scanning postId", err)
 		graphql.AddErrorf(ctx, "server error occurred")
@@ -360,7 +338,7 @@ func (db *DB) UpdateUser(ctx context.Context, input *model.UpdateUserInput) *mod
 		return &model.User{}
 	}
 	query := fmt.Sprintf("UPDATE users SET about = '%v' WHERE id = %v returning *", input.About, userId)
-	err = db.client.QueryRow(query).Scan(&changedUser.ID, &changedUser.Name, &changedUser.About)
+	err = db.Client.QueryRow(query).Scan(&changedUser.ID, &changedUser.Name, &changedUser.About)
 	if err != nil {
 		log.Println("error scanning data", err)
 		graphql.AddErrorf(ctx, "error parsing data")
@@ -370,6 +348,10 @@ func (db *DB) UpdateUser(ctx context.Context, input *model.UpdateUserInput) *mod
 }
 
 func (db *DB) CreateComment(ctx context.Context, input *model.CreateCommentInput) *model.Comment {
+	text := input.Text
+	if len(input.Text) > 2000 {
+		text = cropstrings.CropToLength(text, 2000)
+	}
 	userId, err := auth.IsAuthorized(ctx)
 	initialComment := -1
 	answerTo := isnumber.TryConvertToInt(input.AnswerTo)
@@ -403,7 +385,7 @@ func (db *DB) CreateComment(ctx context.Context, input *model.CreateCommentInput
 	if answerTo != -1 {
 		var initialCommentStr string
 		updateAnswerQuery := fmt.Sprintf("UPDATE comments SET has_replies = 1 WHERE id = %d RETURNING answer_to", answerTo)
-		err = db.client.QueryRow(updateAnswerQuery).Scan(&initialCommentStr)
+		err = db.Client.QueryRow(updateAnswerQuery).Scan(&initialCommentStr)
 		if err != nil {
 			graphql.AddErrorf(ctx, "failed to answer to comment that doesn't exist")
 			return &model.Comment{}
@@ -412,9 +394,9 @@ func (db *DB) CreateComment(ctx context.Context, input *model.CreateCommentInput
 	}
 	query := fmt.Sprintf(`
 	INSERT INTO COMMENTS (post, author, initial_comment, answer_to, data, has_replies)
-	VALUES ('%s', '%s', %v, %d, '%s', %d) RETURNING id;`, postJson, userJson, initialComment, answerTo, input.Text, 0)
+	VALUES ('%s', '%s', %v, %d, '%s', %d) RETURNING id;`, postJson, userJson, initialComment, answerTo, text, 0)
 	var createdID int
-	err = db.client.QueryRow(query).Scan(&createdID)
+	err = db.Client.QueryRow(query).Scan(&createdID)
 	if err != nil {
 		log.Println("error inserting comment", err)
 		graphql.AddErrorf(ctx, "server error occurred")
@@ -422,7 +404,7 @@ func (db *DB) CreateComment(ctx context.Context, input *model.CreateCommentInput
 	}
 	return &model.Comment{
 		ID:             fmt.Sprint(createdID),
-		Text:           input.Text,
+		Text:           text,
 		Post:           post,
 		Creator:        user,
 		InitialComment: fmt.Sprint(initialComment),
@@ -445,7 +427,7 @@ func (db *DB) GetComment(ctx context.Context, id string) *model.Comment {
 
 	query := fmt.Sprintf(`SELECT * FROM comments WHERE id = %v`, id)
 
-	err := db.client.QueryRow(query).Scan(&resp.id, &resp.post, &resp.author, &resp.initial_comment, &resp.answer_to, &resp.data, &resp.has_replies)
+	err := db.Client.QueryRow(query).Scan(&resp.id, &resp.post, &resp.author, &resp.initial_comment, &resp.answer_to, &resp.data, &resp.has_replies)
 	if err == sql.ErrNoRows {
 		graphql.AddErrorf(ctx, "comment with such id does not exits")
 		return &model.Comment{}
@@ -500,7 +482,7 @@ func (db *DB) UpdateComment(ctx context.Context, commId string, input *model.Upd
 
 	getAuthorQuery := fmt.Sprintf(`SELECT author FROM comments WHERE id = %s`, commId)
 
-	err = db.client.QueryRow(getAuthorQuery).Scan(&authorJson)
+	err = db.Client.QueryRow(getAuthorQuery).Scan(&authorJson)
 
 	if err == sql.ErrNoRows {
 		graphql.AddErrorf(ctx, "comment with such id not found")
@@ -527,7 +509,7 @@ func (db *DB) UpdateComment(ctx context.Context, commId string, input *model.Upd
 	query := fmt.Sprintf(`UPDATE comments SET data = '%s' WHERE id = %s returning *;`, input.Data, commId)
 
 	resp := DBResponse{}
-	err = db.client.QueryRow(query).Scan(&resp.id, &resp.post, &resp.author, &resp.initialComment, &resp.answerTo, &resp.data, &resp.hasReplies)
+	err = db.Client.QueryRow(query).Scan(&resp.id, &resp.post, &resp.author, &resp.initialComment, &resp.answerTo, &resp.data, &resp.hasReplies)
 
 	if err != nil {
 		log.Println("failed to parse data from query", err)
@@ -573,7 +555,7 @@ func (db *DB) GetComments(ctx context.Context, postID string, page int) []*model
 	}
 	query := fmt.Sprintf(`SELECT * FROM comments WHERE post::text = '%s' AND answer_to = -1 LIMIT %d OFFSET %d`, postJson, limit, offset)
 
-	rows, err := db.client.Query(query)
+	rows, err := db.Client.Query(query)
 	if err != nil {
 		log.Println("error performing query", err)
 		graphql.AddErrorf(ctx, "server error occurred")
@@ -646,7 +628,7 @@ func (db *DB) GetReplies(ctx context.Context, commentId string, page int) []*mod
 
 	query := fmt.Sprintf("SELECT * FROM comments WHERE answer_to = %d LIMIT %d OFFSET %d", commentIdInt, limit, offset)
 
-	rows, err := db.client.Query(query)
+	rows, err := db.Client.Query(query)
 
 	if err != nil {
 		log.Println("failed to perform query", err)

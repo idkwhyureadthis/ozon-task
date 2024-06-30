@@ -24,13 +24,8 @@ type CreatePostInput struct {
 }
 
 type CreateUserInput struct {
-	Name  string  `json:"name"`
-	About *string `json:"about,omitempty"`
-}
-
-type DeletePostResponse struct {
-	DeletedPostID  string   `json:"deletedPostId"`
-	DeletedCommsID []string `json:"deletedCommsId"`
+	Name  string `json:"name"`
+	About string `json:"about"`
 }
 
 type Mutation struct {
@@ -60,11 +55,7 @@ type UpdateUserInput struct {
 }
 
 type User struct {
-	ID    string  `json:"id"`
-	Name  string  `json:"name"`
-	About *string `json:"about,omitempty"`
-}
-
-type DeleteCommentResponse struct {
-	DeletedCommentID string `json:"deleted_comment_id"`
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	About string `json:"about"`
 }
