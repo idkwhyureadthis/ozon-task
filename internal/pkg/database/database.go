@@ -468,6 +468,11 @@ func (db *DB) UpdateComment(ctx context.Context, commId string, input *model.Upd
 		answerTo       string
 		hasReplies     int
 	}
+
+	if len(input.Data) > 2000 {
+		input.Data = cropstrings.CropToLength(input.Data, 2000)
+	}
+
 	userId, err := auth.IsAuthorized(ctx)
 	if err != nil {
 		return &model.Comment{}
